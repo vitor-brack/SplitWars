@@ -19,8 +19,6 @@ import androidx.appcompat.app.AppCompatDelegate;
 public class GameActivity extends AppCompatActivity implements SensorEventListener {
     private GameView gameView;
     private ShipView shipView;
-    private ShipView2 shipView2;
-    private View currentShipView;
     private SensorManager sensorManager;
     private Sensor gyroscopeSensor;
     private NetworkManager networkManager;
@@ -52,7 +50,7 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
         // Inicializa a conexão de rede e a tela do jogo
         networkManager = new NetworkManager(this);
         gameView = findViewById(R.id.game_view);
-        gameView.initialize(networkManager, isHost, currentShipView);
+        gameView.initialize(networkManager, isHost, shipView);
 
         // Configura os eventos da nave
         setupShipEventListener();
@@ -83,20 +81,9 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void initializeSelectedShip() {
-        // Encontra as duas naves disponíveis no layout
+        // A mesma view serve para as duas naves: o tipo escolhido define sprites e números
         shipView = findViewById(R.id.ship_view);
-        shipView2 = findViewById(R.id.ship_view2);
-
-        // Escolhe qual nave mostrar baseado na seleção do jogador
-        if (selectedShipType == 1) {
-            currentShipView = shipView;
-            shipView.setVisibility(View.VISIBLE);
-            shipView2.setVisibility(View.GONE);
-        } else {
-            currentShipView = shipView2;
-            shipView2.setVisibility(View.VISIBLE);
-            shipView.setVisibility(View.GONE);
-        }
+        shipView.setShipType(selectedShipType);
     }
 
     private void initializeSensor() {
@@ -122,59 +109,32 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
         View.OnTouchListener touchListener = (v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 // Só quando pressionar (não soltar)
-                if (selectedShipType == 1) {
-                    shipView.disparar();
-                } else {
-                    shipView2.disparar();
-                }
+                shipView.disparar();
                 return true;
             }
             return false;
         };
 
-        if (selectedShipType == 1) {
-            // Define o que acontece quando algo ocorre com a nave 1
-            shipView.setEventListener(new ShipView.ShipEventListener() {
-                @Override
-                public void onShipHit() {
-                    // Nave foi atingida - processa o hit
-                    gameView.onShipHit();
-                }
-                @Override
-                public void onProjectileFired(float x, float y, float speedX, float speedY) {
-                    // Tiro foi disparado
-                    gameView.onProjectileFired(x, y, speedX, speedY);
-                }
-                @Override
-                public void onProjectileHitBorder(float x, float y, float speedX, float speedY) {
-                    // Tiro saiu da tela
-                    gameView.onProjectileHitBorder(x, y, speedX, speedY);
-                }
-            });
-            // Ativa o toque para disparar
-            shipView.setOnTouchListener(touchListener);
-        } else {
-            // Mesma configuração, mas para a nave 2
-            shipView2.setEventListener(new ShipView2.ShipEventListener() {
-                @Override
-                public void onShipHit() {
-                    // Nave foi atingida
-                    gameView.onShipHit();
-                }
-                @Override
-                public void onProjectileFired(float x, float y, float speedX, float speedY) {
-                    // Tiro disparado
-                    gameView.onProjectileFired(x, y, speedX, speedY);
-                }
-                @Override
-                public void onProjectileHitBorder(float x, float y, float speedX, float speedY) {
-                    // Tiro saiu da tela
-                    gameView.onProjectileHitBorder(x, y, speedX, speedY);
-                }
-            });
-            // Ativa o toque para disparar
-            shipView2.setOnTouchListener(touchListener);
-        }
+        // Define o que acontece quando algo ocorre com a nave
+        shipView.setEventListener(new ShipView.ShipEventListener() {
+            @Override
+            public void onShipHit() {
+                // Nave foi atingida - processa o hit
+                gameView.onShipHit();
+            }
+            @Override
+            public void onProjectileFired(float x, float y, float speedX, float speedY) {
+                // Tiro foi disparado
+                gameView.onProjectileFired(x, y, speedX, speedY);
+            }
+            @Override
+            public void onProjectileHitBorder(float x, float y, float speedX, float speedY) {
+                // Tiro saiu da tela
+                gameView.onProjectileHitBorder(x, y, speedX, speedY);
+            }
+        });
+        // Ativa o toque para disparar
+        shipView.setOnTouchListener(touchListener);
     }
 
     private void startConnectionChecker() {
@@ -228,12 +188,8 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
         ((PlanetView) findViewById(R.id.planet_view)).iniciarAnimacao();
         ((MoonView) findViewById(R.id.moon_view)).iniciarAnimacao();
 
-        // Inicia a animação da nave escolhida pelo jogador
-        if (selectedShipType == 1) {
-            shipView.iniciarAnimacao();
-        } else {
-            shipView2.iniciarAnimacao();
-        }
+        // Inicia a animação da nave
+        shipView.iniciarAnimacao();
 
         // Retoma a música de fundo se ela não estiver tocando
         if (backgroundMusic != null && !backgroundMusic.isPlaying()) {
@@ -254,12 +210,8 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
         ((PlanetView) findViewById(R.id.planet_view)).pararAnimacao();
         ((MoonView) findViewById(R.id.moon_view)).pararAnimacao();
 
-        // Para a animação da nave que está sendo usada
-        if (selectedShipType == 1) {
-            shipView.pararAnimacao();
-        } else {
-            shipView2.pararAnimacao();
-        }
+        // Para a animação da nave
+        shipView.pararAnimacao();
 
         // Pausa a música de fundo se ela estiver tocando
         if (backgroundMusic != null && backgroundMusic.isPlaying()) {
@@ -274,9 +226,8 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
         // Para o verificador de conexão
         isConnectionCheckerRunning = false;
 
-        // Libera os recursos de som das duas naves
+        // Libera os recursos de som da nave
         shipView.releaseSound();
-        shipView2.releaseSound();
 
         // Fecha a conexão de rede com o outro jogador
         if (networkManager != null) {
@@ -307,12 +258,8 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
             speedY = event.values[0] * 550.0f;
         }
 
-        // Aplica a velocidade calculada na nave que está sendo usada
-        if (selectedShipType == 1) {
-            shipView.setVelocidadeNave(speedX, speedY);
-        } else {
-            shipView2.setVelocidadeNave(speedX, speedY);
-        }
+        // Aplica a velocidade calculada na nave
+        shipView.setVelocidadeNave(speedX, speedY);
     }
 
     @Override
@@ -350,12 +297,8 @@ public class GameActivity extends AppCompatActivity implements SensorEventListen
         ((PlanetView) findViewById(R.id.planet_view)).iniciarAnimacao();
         ((MoonView) findViewById(R.id.moon_view)).iniciarAnimacao();
 
-        // Reinicia a animação da nave escolhida pelo jogador
-        if (selectedShipType == 1) {
-            shipView.iniciarAnimacao();
-        } else {
-            shipView2.iniciarAnimacao();
-        }
+        // Reinicia a animação da nave
+        shipView.iniciarAnimacao();
 
         // Retoma a música de fundo do início
         if (backgroundMusic != null) {

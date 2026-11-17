@@ -26,6 +26,7 @@ public class ShipView extends View {
     private int shotSoundId;
     private boolean soundLoaded = false;
     private ShipEventListener eventListener;
+    private volatile ShipConfig config = ShipConfig.SHIP_1;
 
     private static class CamadaNave {
         Bitmap spriteSheet;
@@ -69,13 +70,13 @@ public class ShipView extends View {
             tempoVida = System.currentTimeMillis();
         }
 
-        void atualizar(float deltaTime) {
+        void atualizar(float deltaTime, ShipConfig config) {
             if (ativo) {
                 posX += speedX * deltaTime * 60;
                 posY += speedY * deltaTime * 60;
 
                 // Animação do tiro (6 frames)
-                contadorFrame += 10.0f * deltaTime;
+                contadorFrame += config.bulletFrameRate * deltaTime;
                 while (contadorFrame >= 1.0f) {
                     frameAtual = (frameAtual + 1) % 6;
                     contadorFrame -= 1.0f;
@@ -88,7 +89,7 @@ public class ShipView extends View {
             }
         }
 
-        void desenhar(Canvas canvas, Paint paint) {
+        void desenhar(Canvas canvas, Paint paint, ShipConfig config) {
             if (ativo && spriteSheet != null) {
                 paint.setAlpha(255);
 
@@ -102,8 +103,8 @@ public class ShipView extends View {
                         frameAltura
                 );
 
-                int larguraFinal = (int) (frameLargura * 0.8f);
-                int alturaFinal = (int) (frameAltura * 0.8f);
+                int larguraFinal = (int) (frameLargura * config.bulletScale);
+                int alturaFinal = (int) (frameAltura * config.bulletScale);
 
                 float rotacao = ehDoJogador ? 0.0f : 180.0f;
                 if (rotacao != 0.0f) {
@@ -158,15 +159,15 @@ public class ShipView extends View {
             ativa = true;
         }
 
-        void atualizar(float deltaTime) {
+        void atualizar(float deltaTime, ShipConfig config) {
             if (ativa) {
-                contadorFrame += 12.0f * deltaTime;
+                contadorFrame += config.explosionFrameRate * deltaTime;
 
                 while (contadorFrame >= 1.0f) {
                     frameAtual++;
                     contadorFrame -= 1.0f;
 
-                    if (frameAtual >= 10) { // 10 frames de explosão
+                    if (frameAtual >= config.explosionFrames) {
                         ativa = false;
                         frameAtual = 0;
                         break;
@@ -175,11 +176,11 @@ public class ShipView extends View {
             }
         }
 
-        void desenhar(Canvas canvas, Paint paint) {
+        void desenhar(Canvas canvas, Paint paint, ShipConfig config) {
             if (ativa && spriteSheet != null) {
                 paint.setAlpha(255);
 
-                int frameLargura = spriteSheet.getWidth() / 10;
+                int frameLargura = spriteSheet.getWidth() / config.explosionFrames;
                 int frameAltura = spriteSheet.getHeight();
 
                 Rect origem = new Rect(
@@ -189,11 +190,14 @@ public class ShipView extends View {
                         frameAltura
                 );
 
+                int larguraFinal = (int) (frameLargura * config.explosionScale);
+                int alturaFinal = (int) (frameAltura * config.explosionScale);
+
                 Rect destino = new Rect(
-                        (int) (posX - frameLargura / 2),
-                        (int) (posY - frameAltura / 2),
-                        (int) (posX + frameLargura / 2),
-                        (int) (posY + frameAltura / 2)
+                        (int) (posX - larguraFinal / 2),
+                        (int) (posY - alturaFinal / 2),
+                        (int) (posX + larguraFinal / 2),
+                        (int) (posY + alturaFinal / 2)
                 );
 
                 canvas.drawBitmap(spriteSheet, origem, destino, paint);
@@ -211,9 +215,9 @@ public class ShipView extends View {
             this.spriteSheet = sprite;
         }
 
-        void atualizar(float deltaTime) {
+        void atualizar(float deltaTime, ShipConfig config) {
             if (ativo && spriteSheet != null) {
-                contadorFrame += 12.0f * deltaTime;
+                contadorFrame += config.thrusterFrameRate * deltaTime;
 
                 while (contadorFrame >= 1.0f) {
                     frameAtual = (frameAtual + 1) % 8; // 8 frames de propulsão
@@ -222,9 +226,9 @@ public class ShipView extends View {
             }
         }
 
-        void desenhar(Canvas canvas, Paint paint, float naveX, float naveY) {
+        void desenhar(Canvas canvas, Paint paint, float naveX, float naveY, ShipConfig config) {
             if (ativo && spriteSheet != null) {
-                paint.setAlpha(200);
+                paint.setAlpha(config.thrusterAlpha);
 
                 int frameLargura = spriteSheet.getWidth() / 8;
                 int frameAltura = spriteSheet.getHeight();
@@ -236,14 +240,14 @@ public class ShipView extends View {
                         frameAltura
                 );
 
-                int larguraFinal = (int) (frameLargura * 0.8f);
-                int alturaFinal = (int) (frameAltura * 0.8f);
+                int larguraFinal = (int) (frameLargura * config.thrusterScale);
+                int alturaFinal = (int) (frameAltura * config.thrusterScale);
 
                 Rect destino = new Rect(
                         (int) (naveX - larguraFinal / 2),
-                        (int) (naveY + 30),
+                        (int) (naveY + config.thrusterOffsetY),
                         (int) (naveX + larguraFinal / 2),
-                        (int) (naveY + 30 + alturaFinal)
+                        (int) (naveY + config.thrusterOffsetY + alturaFinal)
                 );
 
                 canvas.drawBitmap(spriteSheet, origem, destino, paint);
@@ -284,7 +288,21 @@ public class ShipView extends View {
         criarTiros();
         criarExplosoes();
         criarPropulsao();
+        aplicarSprites();
         initializeSound();
+    }
+
+    /**
+     * Escolhe a nave (1 ou 2; qualquer outro valor usa a nave 2). Só troca os desenhos e os
+     * números de animação e colisão: a posição, os limites e os tiros em andamento ficam como estão.
+     * Deve ser chamado logo depois de criar a view, antes de a animação começar.
+     */
+    public void setShipType(int tipo) {
+        ShipConfig nova = ShipConfig.forType(tipo);
+        if (nova != config) {
+            config = nova;
+            aplicarSprites();
+        }
     }
 
     private void initializeSound() {
@@ -316,42 +334,52 @@ public class ShipView extends View {
     }
 
     private void criarNave() {
-        try {
-            Bitmap sprite = BitmapFactory.decodeResource(getResources(), R.drawable.spr_ship);
-            nave = new CamadaNave(sprite);
-        } catch (Exception e) {
-            nave = new CamadaNave(null);
-        }
+        nave = new CamadaNave(null);
     }
 
     private void criarTiros() {
-        try {
-            Bitmap tiroSprite = BitmapFactory.decodeResource(getResources(), R.drawable.spr_bullet);
-            for (int i = 0; i < 12; i++) {
-                tiros.add(new Tiro(tiroSprite));
-            }
-        } catch (Exception e) {
-            for (int i = 0; i < 12; i++) {
-                tiros.add(new Tiro(null));
-            }
+        for (int i = 0; i < 12; i++) {
+            tiros.add(new Tiro(null));
         }
     }
 
     private void criarExplosoes() {
-        try {
-            Bitmap explosaoSprite = BitmapFactory.decodeResource(getResources(), R.drawable.spr_explosion);
-            explosoes.add(new Explosao(explosaoSprite));
-        } catch (Exception e) {
-            explosoes.add(new Explosao(null));
-        }
+        explosoes.add(new Explosao(null));
     }
 
     private void criarPropulsao() {
+        propulsao = new EfeitoPropulsao(null);
+    }
+
+    // Carrega os desenhos da nave escolhida. Se o recurso não existir ou der erro, fica sem
+    // desenho (null), e a nave 2 ainda tenta o desenho da nave 1 antes de desistir.
+    private void aplicarSprites() {
+        ShipConfig reserva = ShipConfig.SHIP_1;
+
+        nave.spriteSheet = carregarSprite(config.shipSprite, reserva.shipSprite);
+
+        Bitmap tiroSprite = carregarSprite(config.bulletSprite, reserva.bulletSprite);
+        for (Tiro tiro : tiros) {
+            tiro.spriteSheet = tiroSprite;
+        }
+
+        Bitmap explosaoSprite = carregarSprite(config.explosionSprite, reserva.explosionSprite);
+        for (Explosao explosao : explosoes) {
+            explosao.spriteSheet = explosaoSprite;
+        }
+
+        propulsao.spriteSheet = carregarSprite(config.thrusterSprite, reserva.thrusterSprite);
+    }
+
+    private Bitmap carregarSprite(int recurso, int recursoReserva) {
         try {
-            Bitmap propulsaoSprite = BitmapFactory.decodeResource(getResources(), R.drawable.spr_thruster);
-            propulsao = new EfeitoPropulsao(propulsaoSprite);
+            Bitmap sprite = BitmapFactory.decodeResource(getResources(), recurso);
+            if (sprite == null && recursoReserva != recurso) {
+                sprite = BitmapFactory.decodeResource(getResources(), recursoReserva);
+            }
+            return sprite;
         } catch (Exception e) {
-            propulsao = new EfeitoPropulsao(null);
+            return null;
         }
     }
 
@@ -359,8 +387,10 @@ public class ShipView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+        ShipConfig config = this.config;
+
         if (propulsao != null && nave != null) {
-            propulsao.desenhar(canvas, paintTransparente, nave.posX, nave.posY - 95);
+            propulsao.desenhar(canvas, paintTransparente, nave.posX, nave.posY - config.thrusterDrawOffsetY, config);
         }
 
         if (nave != null) {
@@ -369,13 +399,13 @@ public class ShipView extends View {
 
         for (Tiro tiro : tiros) {
             if (tiro.ativo) {
-                tiro.desenhar(canvas, paintTransparente);
+                tiro.desenhar(canvas, paintTransparente, config);
             }
         }
 
         for (Explosao explosao : explosoes) {
             if (explosao.ativa) {
-                explosao.desenhar(canvas, paintTransparente);
+                explosao.desenhar(canvas, paintTransparente, config);
             }
         }
     }
@@ -462,8 +492,8 @@ public class ShipView extends View {
             int alturaTela = getHeight();
 
             if (larguraTela > 0 && alturaTela > 0) {
-                int larguraNave = nave.spriteSheet != null ? nave.spriteSheet.getWidth() : 80;
-                int alturaNave = nave.spriteSheet != null ? nave.spriteSheet.getHeight() : 40;
+                int larguraNave = nave.spriteSheet != null ? nave.spriteSheet.getWidth() : config.fallbackWidth;
+                int alturaNave = nave.spriteSheet != null ? nave.spriteSheet.getHeight() : config.fallbackHeight;
 
                 if (nave.limites != null) {
                     if (nave.posX - larguraNave / 2 < nave.limites.left) nave.posX = nave.limites.left + larguraNave / 2;
@@ -483,7 +513,7 @@ public class ShipView extends View {
     private void atualizarTiros(float deltaTime) {
         for (Tiro tiro : tiros) {
             if (tiro.ativo) {
-                tiro.atualizar(deltaTime);
+                tiro.atualizar(deltaTime, config);
 
                 if (tiro.atingiuBordaSuperior()) {
                     tiro.jaProcessado = true;
@@ -514,22 +544,22 @@ public class ShipView extends View {
     private boolean verificarColisaoTiroNave(Tiro tiro) {
         if (nave == null || !nave.viva) return false;
 
-        int larguraNave = nave.spriteSheet != null ? nave.spriteSheet.getWidth() : 80;
-        int alturaNave = nave.spriteSheet != null ? nave.spriteSheet.getHeight() : 40;
+        int larguraNave = nave.spriteSheet != null ? nave.spriteSheet.getWidth() : config.fallbackWidth;
+        int alturaNave = nave.spriteSheet != null ? nave.spriteSheet.getHeight() : config.fallbackHeight;
 
         // Área de colisão reduzida para ser mais justa
         RectF naveBounds = new RectF(
-                nave.posX - larguraNave * 0.2f,
-                nave.posY - alturaNave * 0.2f,
-                nave.posX + larguraNave * 0.2f,
-                nave.posY + alturaNave * 0.2f
+                nave.posX - larguraNave * config.hitboxFactor,
+                nave.posY - alturaNave * config.hitboxFactor,
+                nave.posX + larguraNave * config.hitboxFactor,
+                nave.posY + alturaNave * config.hitboxFactor
         );
 
         RectF tiroBounds = new RectF(
-                tiro.posX - 10,
-                tiro.posY - 10,
-                tiro.posX + 10,
-                tiro.posY + 10
+                tiro.posX - config.bulletHitboxHalfSize,
+                tiro.posY - config.bulletHitboxHalfSize,
+                tiro.posX + config.bulletHitboxHalfSize,
+                tiro.posY + config.bulletHitboxHalfSize
         );
 
         if (RectF.intersects(naveBounds, tiroBounds)) {
@@ -543,7 +573,7 @@ public class ShipView extends View {
     private void atualizarExplosoes(float deltaTime) {
         for (Explosao explosao : explosoes) {
             if (explosao.ativa) {
-                explosao.atualizar(deltaTime);
+                explosao.atualizar(deltaTime, config);
             }
         }
     }
@@ -556,7 +586,7 @@ public class ShipView extends View {
             } else {
                 propulsao.ativo = false;
             }
-            propulsao.atualizar(deltaTime);
+            propulsao.atualizar(deltaTime, config);
         }
     }
 

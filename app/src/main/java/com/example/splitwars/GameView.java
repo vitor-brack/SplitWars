@@ -15,8 +15,7 @@ public class GameView extends View {
     private int offsetX = 0;
     private int offsetY = 0;
     private NetworkManager networkManager;
-    private View currentShipView;
-    private int shipType = 1;
+    private ShipView shipView;
     private int screenWidth;
     private int screenHeight;
     private boolean pausarJogo = false;
@@ -30,65 +29,16 @@ public class GameView extends View {
         super(context, attrs);
     }
 
-    public void initialize(NetworkManager networkManager, boolean isHost, View shipView) {
+    public void initialize(NetworkManager networkManager, boolean isHost, ShipView shipView) {
         this.networkManager = networkManager;
-        this.currentShipView = shipView;
-        this.shipType = (shipView instanceof ShipView) ? 1 : 2;
+        this.shipView = shipView;
 
         post(() -> {
             if (getWidth() > 0 && getHeight() > 0) {
-                centralizarNave();
+                shipView.centralizarNave();
                 updatePlayableRect();
             }
         });
-    }
-
-    private void centralizarNave() {
-        if (currentShipView instanceof ShipView) {
-            ((ShipView) currentShipView).centralizarNave();
-        } else {
-            ((ShipView2) currentShipView).centralizarNave();
-        }
-    }
-
-    private void setLimitesNave(RectF limites) {
-        if (currentShipView instanceof ShipView) {
-            ((ShipView) currentShipView).setLimitesNave(limites);
-        } else {
-            ((ShipView2) currentShipView).setLimitesNave(limites);
-        }
-    }
-
-    private void resetarNave() {
-        if (currentShipView instanceof ShipView) {
-            ((ShipView) currentShipView).resetarNave();
-        } else {
-            ((ShipView2) currentShipView).resetarNave();
-        }
-    }
-
-    private void iniciarAnimacaoNave() {
-        if (currentShipView instanceof ShipView) {
-            ((ShipView) currentShipView).iniciarAnimacao();
-        } else {
-            ((ShipView2) currentShipView).iniciarAnimacao();
-        }
-    }
-
-    private void pararAnimacaoNave() {
-        if (currentShipView instanceof ShipView) {
-            ((ShipView) currentShipView).pararAnimacao();
-        } else {
-            ((ShipView2) currentShipView).pararAnimacao();
-        }
-    }
-
-    private void receberTiroInimigo(float relativeX, float speedX, float speedY) {
-        if (currentShipView instanceof ShipView) {
-            ((ShipView) currentShipView).receberTiroInimigo(relativeX, speedX, speedY);
-        } else {
-            ((ShipView2) currentShipView).receberTiroInimigo(relativeX, speedX, speedY);
-        }
     }
 
     @Override
@@ -98,7 +48,7 @@ public class GameView extends View {
         screenHeight = h;
 
         post(() -> {
-            centralizarNave();
+            shipView.centralizarNave();
             updatePlayableRect();
         });
     }
@@ -125,15 +75,15 @@ public class GameView extends View {
 
     public void reiniciarJogo() {
         pausarJogo = false;
-        resetarNave();
-        iniciarAnimacaoNave();
+        shipView.resetarNave();
+        shipView.iniciarAnimacao();
         resume(); // CORREÇÃO: Reativar o processamento de mensagens de rede
     }
 
     public void onShipHit() {
         uiHandler.postDelayed(() -> {
             pausarJogo = true;
-            pararAnimacaoNave();
+            shipView.pararAnimacao();
 
             if (getContext() instanceof GameActivity) {
                 ((GameActivity) getContext()).mostrarGameOver("VOCÊ PERDEU!", false);
@@ -162,13 +112,13 @@ public class GameView extends View {
 
         switch (message.getType()) {
             case NetworkMessage.PROJECTILE:
-                receberTiroInimigo(message.getRelativeX(), message.getSpeedX(), message.getSpeedY());
+                shipView.receberTiroInimigo(message.getRelativeX(), message.getSpeedX(), message.getSpeedY());
                 break;
 
             case NetworkMessage.HIT:
                 uiHandler.postDelayed(() -> {
                     pausarJogo = true;
-                    pararAnimacaoNave();
+                    shipView.pararAnimacao();
 
                     if (getContext() instanceof GameActivity) {
                         ((GameActivity) getContext()).mostrarGameOver("VOCÊ GANHOU!", true);
@@ -221,17 +171,13 @@ public class GameView extends View {
 
     private void updatePlayableRect() {
         playableRect.set(offsetX, offsetY, offsetX + playableWidth, offsetY + playableHeight);
-        setLimitesNave(playableRect);
+        shipView.setLimitesNave(playableRect);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            if (currentShipView instanceof ShipView) {
-                ((ShipView) currentShipView).disparar();
-            } else {
-                ((ShipView2) currentShipView).disparar();
-            }
+            shipView.disparar();
             return true;
         }
         return super.onTouchEvent(event);

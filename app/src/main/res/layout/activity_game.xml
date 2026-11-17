@@ -37,10 +37,4 @@
         android:layout_height="wrap_content"
         android:visibility="visible" />
 
-    <com.example.splitwars.ShipView2
-        android:id="@+id/ship_view2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone" />
-
 </RelativeLayout>
