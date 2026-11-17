@@ -9,11 +9,9 @@ import android.view.View;
 import android.widget.Toast;
 
 public class GameView extends View {
-    private RectF playableRect = new RectF();
-    private int playableWidth;
-    private int playableHeight;
-    private int offsetX = 0;
-    private int offsetY = 0;
+    // Fica null até chegar o tamanho da tela do oponente. Sem limite, a nave anda pela tela inteira;
+    // uma área vazia aplicada antes disso empurrava a nave para o canto (ver PlayableArea).
+    private RectF playableRect = null;
     private NetworkManager networkManager;
     private ShipView shipView;
     private int screenWidth;
@@ -139,38 +137,16 @@ public class GameView extends View {
     }
 
     private void adjustPlayableArea(int opponentWidth, int opponentHeight) {
-        if (screenWidth == opponentWidth && screenHeight == opponentHeight) {
-            playableWidth = screenWidth;
-            playableHeight = screenHeight;
-            offsetX = offsetY = 0;
-            updatePlayableRect();
+        PlayableArea area = PlayableArea.compute(screenWidth, screenHeight, opponentWidth, opponentHeight);
+        if (area == null) {
             return;
         }
 
-        float myAspectRatio = (float) screenWidth / screenHeight;
-        float opponentAspectRatio = (float) opponentWidth / opponentHeight;
-
-        if (myAspectRatio > opponentAspectRatio) {
-            float scaleRatio = (float) screenHeight / opponentHeight;
-            playableWidth = (int) (opponentWidth * scaleRatio);
-            playableHeight = screenHeight;
-            offsetX = (screenWidth - playableWidth) / 2;
-            offsetY = 0;
-        } else {
-            float scaleRatio = (float) screenWidth / opponentWidth;
-            playableWidth = screenWidth;
-            playableHeight = (int) (opponentHeight * scaleRatio);
-            offsetX = 0;
-            offsetY = (screenHeight - playableHeight) / 2;
-        }
-
-        playableWidth = Math.min(playableWidth, screenWidth);
-        playableHeight = Math.min(playableHeight, screenHeight);
+        playableRect = new RectF(area.left, area.top, area.right, area.bottom);
         updatePlayableRect();
     }
 
     private void updatePlayableRect() {
-        playableRect.set(offsetX, offsetY, offsetX + playableWidth, offsetY + playableHeight);
         shipView.setLimitesNave(playableRect);
     }
 
