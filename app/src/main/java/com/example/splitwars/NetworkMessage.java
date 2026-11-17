@@ -1,16 +1,12 @@
 package com.example.splitwars;
 
-import java.io.Serializable;
+public class NetworkMessage {
 
-public class NetworkMessage implements Serializable {
-
-    private int originalShipType = 1;
     public static final int PROJECTILE = 1;
     public static final int HIT = 2;
     public static final int DISCONNECT = 3;
     public static final int SCREEN_SIZE = 4;
     private int type;
-    private float x, y;
     private float speedX, speedY;
     private int screenWidth;
     private int screenHeight;
@@ -22,11 +18,6 @@ public class NetworkMessage implements Serializable {
 
     public int getType() {
         return type;
-    }
-
-    public void setY(float y) {
-
-        this.y = y;
     }
 
     public float getSpeedX() {
@@ -69,9 +60,5 @@ public class NetworkMessage implements Serializable {
 
     public void setRelativeX(float relativeX) {
         this.relativeX = relativeX;
-    }
-
-    public void setOriginalShipType(int originalShipType) {
-        this.originalShipType = originalShipType;
     }
 }

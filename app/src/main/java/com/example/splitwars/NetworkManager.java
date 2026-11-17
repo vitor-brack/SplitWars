@@ -4,9 +4,8 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
+import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -22,8 +21,8 @@ public class NetworkManager {
     private ExecutorService networkExecutor;
     private ServerSocket serverSocket;
     private Socket socket;
-    private ObjectOutputStream outputStream;
-    private ObjectInputStream inputStream;
+    private volatile MessageWriter writer;
+    private volatile MessageReader reader;
     private AtomicBoolean isConnected = new AtomicBoolean(false);
     private AtomicBoolean isRunning = new AtomicBoolean(true);
     private Thread readThread;
@@ -119,9 +118,8 @@ public class NetworkManager {
 
     private void setupStreams() {
         try {
-            outputStream = new ObjectOutputStream(socket.getOutputStream());
-            outputStream.flush();
-            inputStream = new ObjectInputStream(socket.getInputStream());
+            writer = new MessageWriter(socket.getOutputStream());
+            reader = new MessageReader(new BufferedInputStream(socket.getInputStream()));
         } catch (IOException e) {
             isConnected.set(false);
         }
@@ -136,33 +134,40 @@ public class NetworkManager {
             @Override
             public void run() {
                 while (isRunning.get() && isConnected.get() && !Thread.currentThread().isInterrupted()) {
-                    try {
-                        if (inputStream != null) {
-                            Object obj = inputStream.readObject();
+                    MessageReader currentReader = reader;
+                    if (currentReader == null) {
+                        isConnected.set(false);
+                        break;
+                    }
 
-                            if (obj instanceof NetworkMessage) {
-                                synchronized (messageLock) {
-                                    lastReceivedMessage = (NetworkMessage) obj;
-                                }
-                            }
-                        } else {
-                            isConnected.set(false);
+                    try {
+                        NetworkMessage message = currentReader.read();
+
+                        if (message == null) {
+                            // o oponente fechou a conexão
+                            onConnectionLost();
                             break;
                         }
-                    } catch (IOException e) {
-                        if (isRunning.get()) {
-                            isConnected.set(false);
-                            showToast("Oponente se desconectou");
+
+                        synchronized (messageLock) {
+                            lastReceivedMessage = message;
                         }
+                    } catch (IOException e) {
+                        onConnectionLost();
                         break;
-                    } catch (ClassNotFoundException e) {
-                        // Ignorar - não deveria acontecer com NetworkMessage
                     }
                 }
             }
         });
 
         readThread.start();
+    }
+
+    private void onConnectionLost() {
+        if (isRunning.get()) {
+            isConnected.set(false);
+            showToast("Oponente se desconectou");
+        }
     }
 
     public void sendProjectile(float relativeX, float speedX, float speedY) {
@@ -200,17 +205,23 @@ public class NetworkManager {
     }
 
     private void sendMessage(Runnable messageTask) {
-        if (isConnected.get() && outputStream != null) {
+        if (isConnected.get() && writer != null) {
             networkExecutor.execute(messageTask);
         }
     }
 
     private void sendMessageObject(NetworkMessage message) {
+        MessageWriter currentWriter = writer;
+        if (currentWriter == null) {
+            return;
+        }
+
         try {
-            outputStream.writeObject(message);
-            outputStream.flush();
+            currentWriter.write(message);
         } catch (IOException e) {
             isConnected.set(false);
+        } catch (IllegalArgumentException e) {
+            // valor que não cabe no protocolo (NaN ou infinito): descarta só esta mensagem
         }
     }
 
@@ -234,7 +245,7 @@ public class NetworkManager {
         networkExecutor.execute(new Runnable() {
             @Override
             public void run() {
-                if (outputStream != null) {
+                if (writer != null) {
                     try {
                         sendMessageObject(new NetworkMessage(NetworkMessage.DISCONNECT));
                     } catch (Exception e) {
@@ -242,7 +253,8 @@ public class NetworkManager {
                     }
                 }
 
-                closeStreams();
+                writer = null;
+                reader = null;
                 closeSocket();
                 closeServerSocket();
             }
@@ -259,26 +271,6 @@ public class NetworkManager {
                 }
             }
         }).start();
-    }
-
-    private void closeStreams() {
-        if (outputStream != null) {
-            try {
-                outputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            outputStream = null;
-        }
-
-        if (inputStream != null) {
-            try {
-                inputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            inputStream = null;
-        }
     }
 
     private void closeSocket() {
