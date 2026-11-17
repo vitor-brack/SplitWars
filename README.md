@@ -178,7 +178,7 @@ O app foi testado nos dois papéis, com o mesmo resultado.
 - A lista do lobby só se preenche pelo botão **Adicionar por IP**. O código trata uma mensagem `PRESENCE`, mas nada a envia
 - O `NetworkManager` guarda só a última mensagem recebida, e o `GameView` a consulta a cada 17 ms. Duas mensagens que cheguem com menos de 17 ms de diferença perdem a primeira
 - O `SCREEN_SIZE` sai uma única vez, 2 segundos depois de a partida abrir, e só se já houver conexão. Quem conectar depois disso não recebe o tamanho da outra tela
-- A música de fundo, o som do tiro e as imagens (`res/raw` e os `spr_*.png` de `res/drawable`) não têm a origem documentada. A licença MIT do repositório não cobre esses arquivos
+- A música de fundo é, segundo o autor, do jogo R-Type Leo, mas isso não foi confirmado e o arquivo não traz a origem. Ela pertence aos donos do jogo, e o repositório não tem uma licença deles para usá-la. O som do tiro e as imagens (`res/raw` e os `spr_*.png` de `res/drawable`) não têm a origem documentada. A licença MIT do repositório não cobre nenhum desses arquivos
 
 ## Próximos passos
 
@@ -187,9 +187,9 @@ O app foi testado nos dois papéis, com o mesmo resultado.
 - Aceitar um `ACCEPT` só de quem foi convidado, e pensar numa forma de confirmar quem está do outro lado
 - Descobrir os jogadores da rede automaticamente, o que passa por mandar o `PRESENCE` que o código já sabe ler
 - Testar com dois celulares de verdade, com telas de tamanhos diferentes
-- Achar a origem da música, do som e dos sprites, ou trocá-los por arquivos com licença conhecida
+- Trocar a música por um arquivo com licença conhecida, e achar a origem do som do tiro e dos sprites ou trocá-los também
 - Escrever testes do `NetworkManager` com sockets reais no PC. Hoje só o protocolo, o `ShipConfig` e a `PlayableArea` têm testes
 
 ## Licença
 
-[MIT](LICENSE), para o código. A música de fundo, o som do tiro e as imagens não são cobertos por ela, porque a origem desses arquivos não está documentada.
+[MIT](LICENSE), para o código. A música de fundo, o som do tiro e as imagens não são cobertos por ela. A música é, segundo o autor, do jogo R-Type Leo e pertence aos donos dele; a origem do som do tiro e das imagens não está documentada.
